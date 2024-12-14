@@ -19,6 +19,8 @@ pyr_param = {
     "E_L": -65,
     "E_ex": 0.0,
     "E_in": -70.0,
+    'tau_syn_ex': 0.2,
+    'tau_syn_in': 2.0,
 }
 
 # Inhibitory Neuron Parameters
@@ -37,59 +39,35 @@ pv_param = {
     "E_L": -62,
     "E_ex": 0.0,
     "E_in": -70.0,
+    'tau_syn_ex': 0.2,
+    'tau_syn_in': 2.0,
 }
 
-## Number of Neurons in a Cluster
-N_i = 12
-N_e = N_i * 4  # 4:1 ratio of excitatory to inhibitory neurons
+str_dict = {
+    "N_i": 12,
+    "N_e": 'N_i' * 4,
+    "N_clusters": 2,
+}
 
 ## weights to be initialized in the network; from C. van Vreeswijk and H. Sompolinsky (1996) paper
 w_dict = {"wee": 1, "wie": 1, "wei": -2, "wii": -1.8}
 
-## Number of Clusters
-N_clusters = 2
-
-
 
 # Setting the CV for some parameters: -- from "Brain-inspired methods for achieving robust computation in heterogeneous mixed-signal neuromorphic processing systems"
-# time constants : Tau_m = C_m / g_L and overall should be 18% so i will vary both a bit (more the conductance), trying to get the overall 18% for tau_m
-g_L_CV = 0.09
-C_m_CV = 0.09
+# Coefficient of Variation for Heterogeneous Parameters
+CV_dict = {
+    "g_L": 0.09,
+    "C_m": 0.09, # for total tau_m = C_m / g_L with 18% CV 
+    "t_ref": 0.08, # refractory period
+    "w": 0.2, # for all the weights
+    "syn": 0.08, # Synapse time constants from 7% to 10% depending on the type -- NMDA or AMPA
+                    # TODO: include / specify the types of synapses then?!
 
-# refractory period
-t_ref_CV = 0.08
-
-# weight parameters.... for initial setting.... -- but all of them! 
-w_CV = 0.2
-
-# Synapse time constants from 7% to 10% depending on the type -- NMDA or AMPA
-# TODO: include / specify the types of synapses then?!
-syn_CV = 0.08
+}
 
 
-
-
-
-
-
-
-################### Helper functions ####################
+# Helper Function
 def generate(target, CV, N):
-    """
-    Generate a Gaussian-distributed set of parameters with a specified mean and coefficient of variation.
-
-    Parameters:
-    - target: float, the mean (μ) of the distribution.
-    - CV: float, the coefficient of variation (σ / μ).
-    - N: int, the number of parameters to generate.
-
-    Returns:
-    - parameters: numpy array of generated parameters.
-    """
-    # Calculate the standard deviation (σ)
+    """Generate heterogeneous parameter values."""
     std_dev = CV * target
-    
-    # Generate N parameters from a Gaussian distribution
-    parameters = np.random.normal(loc=target, scale=std_dev, size=N)
-    
-    return parameters
+    return np.random.normal(loc=target, scale=std_dev, size=N)
