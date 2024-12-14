@@ -71,3 +71,30 @@ def generate(target, CV, N):
     """Generate heterogeneous parameter values."""
     std_dev = CV * target
     return np.random.normal(loc=target, scale=std_dev, size=N)
+
+
+# Generate the parameters
+## make the g_L, C_m, t_ref, w, syn heterogeneous accorfing to the coefficient of variation
+gL_e =  generate( pyr_param['g_L'],  CV_dict['g_L'],  str_dict['N_e'])
+gL_i =  generate( pv_param['g_L'],  CV_dict['g_L'],  str_dict['N_i'])
+Cm_e =  generate( pyr_param['C_m'],  CV_dict['C_m'],  str_dict['N_e'])
+Cm_i =  generate( pv_param['C_m'],  CV_dict['C_m'],  str_dict['N_i'])
+t_ref_e =  generate( pyr_param['t_ref'],  CV_dict['t_ref'],  str_dict['N_e'])
+t_ref_i =  generate( pv_param['t_ref'],  CV_dict['t_ref'],  str_dict['N_i'])
+tau_syn_ex_e =  generate( pyr_param['tau_syn_ex'],  CV_dict['tau_syn_ex'],  str_dict['N_e'])
+tau_syn_in_e =  generate( pyr_param['tau_syn_in'],  CV_dict['tau_syn_in'],  str_dict['N_e'])
+tau_syn_ex_i =  generate( pv_param['tau_syn_ex'],  CV_dict['tau_syn_ex'],  str_dict['N_i'])
+tau_syn_in_i =  generate( pv_param['tau_syn_in'],  CV_dict['tau_syn_in'],  str_dict['N_i'])
+
+het_dict = {
+    "gL_e": gL_e,
+    "gL_i": gL_i,
+    "Cm_e": Cm_e,
+    "Cm_i": Cm_i,
+    "t_ref_e": t_ref_e,
+    "t_ref_i": t_ref_i,
+    "tau_syn_ex_e": tau_syn_ex_e,
+    "tau_syn_in_e": tau_syn_in_e,
+    "tau_syn_ex_i": tau_syn_ex_i,
+    "tau_syn_in_i": tau_syn_in_i
+}
