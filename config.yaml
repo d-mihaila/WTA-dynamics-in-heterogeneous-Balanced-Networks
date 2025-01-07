@@ -1,0 +1,142 @@
+# file containing all information for building the clusters, inputs, connections, simulation
+structure:
+  N_i: 12
+  N_e: 48
+  N_clusters: 4
+
+repeats:
+  per_round: 10 # number repeats per round
+  rounds: 2 # number of rounds
+  CV_increments: 10 # number of values within the CV bounds
+
+simulate: 
+  duration: 1000.0
+  delay: 100
+  trigger: 200
+  test: 200
+
+exc_params:
+  a: -0.8
+  b: 65
+  V_th: -52
+  Delta_T: 0.8
+  I_e: 200.0 # needs to be checked
+  C_m: 104.0
+  g_L: 4.3
+  V_reset: -53
+  tau_w: 88
+  t_ref: 5.0
+  V_peak: -20.0 # changed from -40 for threshold heterogeneiety
+  E_L: -65
+  E_ex: 0.0
+  E_in: -70.0
+  tau_syn_ex: 0.2
+  tau_syn_in: 2.0
+
+inh_params:
+  a: 1.8
+  b: 60.0
+  V_th: -42.0
+  Delta_T: 3.0
+  I_e: 350.0 # made it higher as there were v few spikes
+  C_m: 59
+  g_L: 3
+  V_reset: -54.0
+  tau_w: 20.0
+  t_ref: 5.0
+  V_peak: -30.0 # changed from -40 for threshold heterogeneiety
+  E_L: -62
+  E_ex: 0.0
+  E_in: -70.0
+  tau_syn_ex: 0.2
+  tau_syn_in: 2.0
+
+weights:
+  wee: 1.0
+  wie: 1.0
+  wei: -2.0
+  wii: -1.8
+  wli: 1.8 # lateral inhibition ex -> inhib but == wii
+
+
+# NOTE: the CVs cannot be too large -- otherwise from the way thery were chosen in the from that distribution
+# it might be possible that they might be negative....
+CV: # Coefficient of variation -- tune heterogeneiety parameter by parameter
+  g_L: 0.3  # 0.1 means 10% heterogeneity btw
+  C_m: 0.0
+  V_th: 0.0
+  tau_ref: 0.0
+  tau_w: 0.0
+  Delta_T: 0.0
+  a: 0.0
+  b: 0.0
+  w: 0.0
+  syn: 0.0
+
+sinusoidal_input:
+  rate : [1000] 
+  amplitude : [1500]
+  frequency : [5, 30]
+
+dc_input:
+  amplitude: 100.0
+
+
+conn_spec:  # bernoulli 
+  rule: pairwise_bernoulli 
+  p: 0.5 
+
+lat_inhib: # lateral inhibition connection rule
+  rule: 'fixed_total_number'
+  N_inh: 12
+
+syn_spec: # triplet STDP
+  # Excitatory-to-Excitatory
+  ee:
+    synapse_model: stdp_triplet_synapse
+    weight: 1.0                
+    # tau_plus: 20.0
+    # tau_plus_triplet: 50.0
+    # Aplus: 0.01
+    # Aplus_triplet: 0.005
+    # Aminus: 0.01
+    # Aminus_triplet: 0.005
+    Wmax: 4.0                
+
+  # Excitatory-to-Inhibitory 
+  ie:
+    synapse_model: stdp_triplet_synapse
+    weight: 1.0
+    # tau_plus: 20.0
+    # tau_plus_triplet: 50.0
+    # Aplus: 0.01
+    # Aplus_triplet: 0.005
+    # Aminus: 0.01
+    # Aminus_triplet: 0.005
+    Wmax: 4.0
+
+  # Inhibitory-to-Excitatory 
+  ei:
+    synapse_model: stdp_triplet_synapse
+    weight: -2.0
+    # tau_plus: 20.0
+    # tau_plus_triplet: 50.0
+    # Aplus: 0.005
+    # Aplus_triplet: 0.002
+    # Aminus: 0.01
+    # Aminus_triplet: 0.005
+    Wmax: -8.0  
+
+  # Inhibitory-to-Inhibitory
+  ii:
+    synapse_model: stdp_triplet_synapse   
+    weight: -1.8
+    # tau_plus: 20.0
+    # tau_plus_triplet: 50.0
+    # Aplus: 0.005
+    # Aplus_triplet: 0.002
+    # Aminus: 0.01
+    # Aminus_triplet: 0.005
+    Wmax: -7.2
+
+  
