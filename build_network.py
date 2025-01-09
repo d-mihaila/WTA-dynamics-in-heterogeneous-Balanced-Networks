@@ -81,8 +81,6 @@ class Network:
             cluster_pyr_gids = cluster.pyr_neurons.tolist()
 
             # For each connected GID, find its local index in cluster.pyr_neurons
-            # (Ensure no duplicates and that we sort them, because NEST’s indexing
-            #  requires strictly ascending, unique indices if we do c.pyr_neurons[[...]])
             connected_idx = []
             for gid in connected_gids:
                 idx = cluster_pyr_gids.index(gid)  # local position within c.pyr_neurons
@@ -138,7 +136,7 @@ class Network:
             targets = nest.GetStatus(conns, "target")
 
             nest.Disconnect(conns)
-
+            # i dearly hope this keeps the weights intact
             nest.Connect(sources, targets, conn_spec="one_to_one", syn_spec = {"weight": weights})
 
         print(f"Learning has stopped and the weights have been kept.")
@@ -167,11 +165,7 @@ class Network:
         print(f"FOR LATERAL INHIBITION: Connecting {N_out} excitatory neurons to {N_in} inhibitory neurons each per cluster.")
 
         lat_inhib_conn = {"rule": self.lat_inhib['conn_rule'], 'indegree': N_in}
-        lat_inhib_syn = {"synapse_model": "static_synapse", "weight": self.w_dict['wli']} # here change maybe 
-
-        j = 0
-        n = self.str_dict['N_clusters']
-        n = N_out * n * (n - 1)
+        lat_inhib_syn = {"synapse_model": "static_synapse", "weight": self.w_dict['wli']} # here change maybe if lateral inhibition is not enough.
 
         for src_cluster_idx, src_cluster in enumerate(self.clusters):
             for i in indexes:
@@ -186,9 +180,7 @@ class Network:
                             syn_spec=lat_inhib_syn
                         )
 
-                        j = j + 1
-
-        print(f"{j}/{n} Lateral inhibition groups connected.")
+        print("Lateral inhibition was added.")
 
 
     def trigger(self):
@@ -200,6 +192,7 @@ class Network:
             connected_idx = self.conn_dict[i]['connected_idx']
             # cluster.pyr_neurons[connected_idx] -> a NodeCollection with the subset we want
 
+            # the node collection indexing is very particular here -- so needed the indexes from the GIDs for earlier 
             nest.Connect(
                 trigger_input, 
                 cluster.pyr_neurons[connected_idx],
@@ -252,26 +245,36 @@ def make_input(config):
     '''function that generates the random parameters of the input 
     important to make this outside the class for reproducibility.'''
 
+    # we make sure that the values chosen are not too close -- thus normal distribution and std deviation. 
+
     num = config['structure']['N_clusters']
 
     trigger_input = np.random.randint(0, num) # index for the trigger input
 
     rate_bounds = config['sinusoidal_input']['rate']
     if len(rate_bounds) == 2:
-        i_rate = np.random.randint(rate_bounds[0], rate_bounds[1], num)
+        bound_interval = rate_bounds[1] - rate_bounds[0]
+        std_dev = bound_interval / (5 * num)
+        dummy_values = np.linspace(rate_bounds[0], rate_bounds[1], num)
+        i_rate = np.random.normal(dummy_values, std_dev)
     else:
         i_rate = np.array([rate_bounds[0]] * num)
 
     ampl_bounds = config['sinusoidal_input']['amplitude']
     if len(ampl_bounds) == 2:
-        i_amplitude = np.random.randint(ampl_bounds[0], ampl_bounds[1], num)
+        bound_interval = ampl_bounds[1] - ampl_bounds[0]
+        std_dev = bound_interval / (5 * num)
+        dummy_values = np.linspace(ampl_bounds[0], ampl_bounds[1], num)
+        i_amplitude = np.random.normal(dummy_values, std_dev)
     else:
         i_amplitude = np.array([ampl_bounds[0]] * num)
 
     freq_bounds = config['sinusoidal_input']['frequency']
     if len(freq_bounds) == 2:
-        # i_freq = np.linspace(freq_bounds[0], freq_bounds[1], num)
-        i_freq = np.random.randint(freq_bounds[0], freq_bounds[1], num)
+        bound_interval = freq_bounds[1] - freq_bounds[0]
+        std_dev = bound_interval / (5 * num)
+        dummy_values = np.linspace(freq_bounds[0], freq_bounds[1], num)
+        i_freq = np.random.normal(dummy_values, std_dev)
 
     else:
         i_freq = np.array([freq_bounds[0]] * num)

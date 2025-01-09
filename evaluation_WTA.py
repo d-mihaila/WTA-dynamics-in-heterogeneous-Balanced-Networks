@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nest
 import numpy as np
-import build_network as Network
+from build_network import Network, make_input
 from collections import Counter
-from scipy.optimize import curve_fit
+# from scipy.optimize import curve_fit
 
 
 '''This file is evaluating the persormance of the WTA dybamics of the more clusters'''
@@ -18,6 +18,9 @@ from scipy.optimize import curve_fit
 
 # just checking the code worked.
 
+
+####################
+## Visualisations ##
 def plot_results_preliminary(net):
    # just plotting a histogram of all the populations (plus the parrot neuron for input) to check that the code is working
 
@@ -149,6 +152,10 @@ def activity_plot(net):
     plt.tight_layout()
     plt.show()
 
+
+
+############################
+## Performance Evaluation ##
 def get_winner(net):
     # in this function we will get the total amount of excitatory spikes elicited by each clusters 
     # in the trigger and test period and compare the test trigger answer to the input actually elicited. 
@@ -250,6 +257,41 @@ def success_rate(correct, trigger, test):
     return rate_trigger, rate_test, rate_both
 
 
+#########################
+## Running Experiments ##
+
+def run_non_hetero(config):
+    '''just normal experiments, to see how the clusters perform'''
+    per_round = config['repeats']['per_round']
+    rounds = config['repeats']['rounds']
+
+    correct = np.zeros((rounds, per_round))
+    triggered = np.zeros((rounds, per_round))
+    test = np.zeros((rounds, per_round))
+
+    total_iterations = rounds * per_round
+
+    for i in range(rounds):
+        input_param = make_input(config)
+        print(f'frequency of round {i+1}/{rounds}: {input_param[2]}')
+        
+        for j in range(per_round):
+            net = Network(config, input_param)
+            net.run_simulation()
+            
+            # evaluate the performance:
+            winner_correct, winner_triger, winner_test = get_winner(net)
+            correct[i, j] = winner_correct
+            triggered[i, j] = winner_triger
+            test[i, j] = winner_test
+
+            nest.ResetKernel()
+
+            print(f'Round {i+j+1}/{total_iterations}')
+
+    success_rate(correct, triggered, test)
+
+
 def run_CV_experiments(config):
     """
     Runs a series of experiments over multiple CV values,
@@ -257,194 +299,127 @@ def run_CV_experiments(config):
     """
 
     # Extract needed values from the config
-    c_m_max       = config["CV"]["C_m"]
-    n_increments  = config["repeats"]["CV_increments"]
+    c_m_max       = config["CV"]["g_L"]
+    n_increments  = config["repeats"]["CV_steps"]
     n_repeats     = config["repeats"]["per_round"]
+    rounds        = config["repeats"]["rounds"]
 
 
-    c_m_values = np.linspace(0, c_m_max, n_increments)  
+    g_L_values = np.linspace(0, c_m_max, n_increments)  
 
-    # Prepare 2D lists for winners
-    correct_winners = [[] for _ in range(len(c_m_values))]
-    trigger_winners = [[] for _ in range(len(c_m_values))]
-    test_winners    = [[] for _ in range(len(c_m_values))]
+    correct_winners  = [ [ [] for _ in range(rounds) ] for _ in range(n_increments) ]
+    trigger_winners  = [ [ [] for _ in range(rounds) ] for _ in range(n_increments) ]
+    test_winners     = [ [ [] for _ in range(rounds) ] for _ in range(n_increments) ]
 
-    # Arrays to store the final success rates per C_m
-    trigger_success = []
-    test_success    = []
-    both_success    = []
+    trigger_success  = [ [] for _ in range(n_increments) ]
+    test_success     = [ [] for _ in range(n_increments) ]
+    both_success     = [ [] for _ in range(n_increments) ]
 
-    # Iterate over each C_m in our linspace
-    for i, c_m_val in enumerate(c_m_values):
-        config["CV"]["C_m"] = c_m_val
-        print(f"\n======= Running for C_m = {c_m_val} =======")
+    for c_i, g_L in enumerate(g_L_values):
+        config["CV"]["g_L"] = g_L
+        print(f"\n======= Running for C_m = {g_L} =======")
 
-        for i in range(n_repeats):
-            # Setup and run your simulation
-            net = Network(config)   # <-- Adjust if your class name or init is different
-            net.run_simulation()
+        # For each round, we generate one input_params and reuse it for n_repeats
+        for r_i in range(rounds):
+            input_params = make_input(config)
 
-            # Collect winners
-            correct_winners[i].append(net.winner)
+            # Run 'n_repeats' times with the same input_params
+            for _ in range(n_repeats):
+                net = Network(config, input_params)  
+                net.run_simulation()
 
-            # get_winner should return (trigger, test)
-            trigger, test = get_winner(net)
-            trigger_winners[i].append(trigger)
-            test_winners[i].append(test)
+                # Return (trigger, test, correct)
+                trigger, test, correct = get_winner(net)
 
-            # Reset NEST for the next iteration
-            nest.ResetKernel()
+                trigger_winners[c_i][r_i].append(trigger)
+                test_winners[c_i][r_i].append(test)
+                correct_winners[c_i][r_i].append(correct)
 
-        # Compute success rates for this batch (this C_m)
-        rate_trigger, rate_test, rate_both = success_rate(
-            correct_winners[i],
-            trigger_winners[i],
-            test_winners[i]
-        )
+                # Reset NEST for the next iteration
+                nest.ResetKernel()
 
-        # Store them for plotting or analysis
-        trigger_success.append(rate_trigger)
-        test_success.append(rate_test)
-        both_success.append(rate_both)
+            # Now, compute success rate for this specific round
+            # We have a list of length `n_repeats` in each array, so shape is (1, n_repeats)
+            rate_trigger, rate_test, rate_both = success_rate(
+                np.array(trigger_winners[c_i][r_i]).reshape(1, -1),
+                np.array(test_winners[c_i][r_i]).reshape(1, -1),
+                np.array(correct_winners[c_i][r_i]).reshape(1, -1)
+            )
 
-    # Restore config["CV"]["C_m"] to its original max if needed
+            # Store them in our 2D success lists
+            trigger_success[c_i].append(rate_trigger)
+            test_success[c_i].append(rate_test)
+            both_success[c_i].append(rate_both)
+
+    # (Optional) restore the config["CV"]["C_m"]
     config["CV"]["C_m"] = c_m_max
 
     # ==============================
     # Plot the three success curves
     # ==============================
+    all_cms_trigger = []
+    all_rates_trigger = []
+    all_cms_test = []
+    all_rates_test = []
+    all_cms_both = []
+    all_rates_both = []
+
+    # We'll also prepare arrays for the mean lines:
+    mean_trigger_by_c = []
+    mean_test_by_c = []
+    mean_both_by_c = []
+
+    for c_i, c_m_val in enumerate(g_L_values):
+        round_trigger_rates = trigger_success[c_i]  # length 'rounds'
+        round_test_rates    = test_success[c_i]
+        round_both_rates    = both_success[c_i]
+
+        # 1) Scatter data: each round's success rate as an individual point
+        for r_i in range(rounds):
+            all_cms_trigger.append(c_m_val)
+            all_rates_trigger.append(round_trigger_rates[r_i])
+
+            all_cms_test.append(c_m_val)
+            all_rates_test.append(round_test_rates[r_i])
+
+            all_cms_both.append(c_m_val)
+            all_rates_both.append(round_both_rates[r_i])
+
+        # 2) Compute means for each measure at this c_i
+        mean_trigger = np.mean(round_trigger_rates) if round_trigger_rates else 0
+        mean_test    = np.mean(round_test_rates)    if round_test_rates else 0
+        mean_both    = np.mean(round_both_rates)    if round_both_rates else 0
+
+        mean_trigger_by_c.append(mean_trigger)
+        mean_test_by_c.append(mean_test)
+        mean_both_by_c.append(mean_both)
+
+    # ==============================
+    # 5. Plot all data
+    # ==============================
     plt.figure(figsize=(8, 5))
-    plt.plot(c_m_values, trigger_success, marker='o', label='Trigger Success (%)')
-    plt.plot(c_m_values, test_success,    marker='s', label='Test Success (%)')
-    plt.plot(c_m_values, both_success,    marker='^', label='Both Success (%)')
-    plt.title("Success Rates vs. C_m Values")
-    plt.xlabel("C_m Value")
+
+    # --- (A) Scatter all points ---
+    plt.scatter(all_cms_trigger, all_rates_trigger, 
+                color='blue', alpha=0.6, marker='o', label="Trigger Rates")
+    plt.scatter(all_cms_test, all_rates_test, 
+                color='green', alpha=0.6, marker='s', label="Test Rates")
+    plt.scatter(all_cms_both, all_rates_both, 
+                color='red', alpha=0.6, marker='^', label="Both Rates")
+
+    # --- (B) Plot mean lines (piecewise linear) ---
+    # These lines connect the average success rate at each c_m in order
+    plt.plot(g_L_values, mean_trigger_by_c, '-o', color='blue',
+             label="Mean Trigger Rate (connected)")
+    plt.plot(g_L_values, mean_test_by_c, '-s', color='green',
+             label="Mean Test Rate (connected)")
+    plt.plot(g_L_values, mean_both_by_c, '-^', color='red',
+             label="Mean Both Rate (connected)")
+
+    plt.title("Success Rates vs. g_L Values (Scatter + Mean Lines)")
+    plt.xlabel("CV Value")
     plt.ylabel("Success Rate (%)")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
-
-
-
-
-# ---------------------------
-def get_winner_extended(net):
-    """
-    Returns:
-    - winner_correct: integer cluster index that was 'intended' to be correct
-    - winner_trigger: integer cluster index with max excitatory spikes in trigger period
-    - winner_test: integer cluster index with max excitatory spikes in test period
-    - spikes_trigger: 1D array of length (N_clusters), total excitatory spikes in trigger period
-    - spikes_test: 1D array of length (N_clusters), total excitatory spikes in test period
-    """
-
-    winner_correct = net.winner
-
-    # Prepare lists
-    spikes_trigger = []
-    spikes_test = []
-
-    # Time intervals
-    duration = net.simulation['duration']
-    delay = net.simulation['delay']
-    trigger = net.simulation['trigger']
-    test = net.simulation['test']
-
-    # Define boundaries
-    trigger_start = duration + delay
-    trigger_end   = trigger_start + trigger
-    test_start    = trigger_end
-    test_end      = test_start + test
-
-    # For each cluster, count excitatory spikes in trigger/test
-    for cluster in net.clusters:
-        pyr_data = nest.GetStatus(cluster.pyr_spikes, keys='events')[0]
-        times = pyr_data['times']
-
-        # Count spikes in trigger period
-        trig_spikes = np.sum((times >= trigger_start) & (times < trigger_end))
-        spikes_trigger.append(trig_spikes)
-
-        # Count spikes in test period
-        t_spikes = np.sum((times >= test_start) & (times < test_end))
-        spikes_test.append(t_spikes)
-
-    spikes_trigger = np.array(spikes_trigger)
-    spikes_test    = np.array(spikes_test)
-
-    # Determine winners
-    winner_trigger = np.argmax(spikes_trigger)
-    winner_test    = np.argmax(spikes_test)
-
-    # Debug / logs
-    print(f"Spikes in trigger period: {spikes_trigger.tolist()}")
-    print(f"Spikes in test period: {spikes_test.tolist()}")
-    print(f"Winner (Trigger): Cluster {winner_trigger}")
-    print(f"Winner (Test): Cluster {winner_test}")
-    print(f"Correct winner (input chosen cluster): Cluster {winner_correct}")
-
-    return winner_correct, winner_trigger, winner_test, spikes_trigger, spikes_test
-
-def summarize_round(
-    round_index,
-    winner_correct_list,  # shape = (per_round,) of correct winners
-    winner_trigger_list,  # shape = (per_round,) of winners
-    winner_test_list,     # shape = (per_round,) of winners
-    all_trigger_spikes,   # shape = (per_round, N_clusters)
-    all_test_spikes       # shape = (per_round, N_clusters)
-):
-    """
-    Summarize the results for one round.
-    
-    - We find the cluster with the majority "wins" in trigger and test phases.
-    - We also sum up total spikes across repeats for each cluster in trigger/test phases.
-    - Then see which cluster is top.
-    """
-
-    
-    per_round = len(winner_correct_list)
-    # 1) The "majority" winners by counting how many times each cluster was the winner.
-    trigger_counter = Counter(winner_trigger_list)
-    test_counter    = Counter(winner_test_list)
-
-    # which cluster had the most trigger wins overall?
-    majority_trigger_cluster = max(trigger_counter, key=trigger_counter.get)
-    # how many times did it win?
-    majority_trigger_count = trigger_counter[majority_trigger_cluster]
-
-    # which cluster had the most test wins overall?
-    majority_test_cluster = max(test_counter, key=test_counter.get)
-    majority_test_count   = test_counter[majority_test_cluster]
-
-    # 2) The "majority" correct cluster: we assume net.winner is the same across repeats,
-    #    but if it's not, you can similarly do a counter. 
-    #    Typically net.winner might vary, but let's see which was correct the most. 
-    correct_counter = Counter(winner_correct_list)
-    majority_correct_cluster = max(correct_counter, key=correct_counter.get)
-    majority_correct_count   = correct_counter[majority_correct_cluster]
-
-    # 3) Sum up total spikes across repeats for each cluster
-    sum_trigger_spikes = np.sum(all_trigger_spikes, axis=0)  # shape (N_clusters,)
-    sum_test_spikes    = np.sum(all_test_spikes, axis=0)     # shape (N_clusters,)
-
-    spike_trigger_winner = np.argmax(sum_trigger_spikes)
-    spike_test_winner    = np.argmax(sum_test_spikes)
-
-    # Print a neat table
-    print(f"\n=== Round {round_index+1} Summary ===")
-    print(f"  - Majority correct cluster   = {majority_correct_cluster} (count: {majority_correct_count})")
-    print(f"  - Majority trigger winner    = {majority_trigger_cluster} (count: {majority_trigger_count}/{per_round})")
-    print(f"  - Majority test winner       = {majority_test_cluster} (count: {majority_test_count}/{per_round})")
-    print(f"  - Highest total trigger spk  = Cluster {spike_trigger_winner} (sum of {sum_trigger_spikes[spike_trigger_winner]} spikes)")
-    print(f"  - Highest total test spk     = Cluster {spike_test_winner}    (sum of {sum_test_spikes[spike_test_winner]} spikes)")
-
-    # Optionally return them for further use
-    return {
-        "majority_correct_cluster": majority_correct_cluster,
-        "majority_trigger_cluster": majority_trigger_cluster,
-        "majority_test_cluster": majority_test_cluster,
-        "spike_trigger_winner": spike_trigger_winner,
-        "spike_test_winner": spike_test_winner
-    }

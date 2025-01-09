@@ -3,18 +3,18 @@
 structure:
   N_i: 12
   N_e: 48
-  N_clusters: 2
+  N_clusters: 4
 
 repeats:
-  per_round: 20 # number repeats per round
-  rounds: 3 # number of rounds
-  CV_increments: 10 # number of values within the CV bounds
+  per_round: 10 # number repeats per round
+  rounds: 5 # number of rounds
+  CV_steps: 10 # number of values within the CV bounds
 
 simulate: 
   duration: 10000.0
   delay: 500
   trigger: 1000
-  test: 300
+  test: 1000
 
 
 sinusoidal_input:
@@ -140,7 +140,7 @@ syn_spec: # triplet STDP
 ###############################
 ## Coefficients of Variation ##
 CV:
-  g_L: 0.0  
+  g_L: 0.0 
   C_m: 0.0
   V_th: 0.0
   tau_ref: 0.0
