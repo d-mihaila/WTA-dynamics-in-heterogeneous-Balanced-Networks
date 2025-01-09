@@ -1,20 +1,32 @@
-# file containing all information for building the clusters, inputs, connections, simulation
+############################
+## Structure & Simulation ##
 structure:
   N_i: 12
   N_e: 48
-  N_clusters: 4
+  N_clusters: 2
 
 repeats:
-  per_round: 10 # number repeats per round
-  rounds: 2 # number of rounds
+  per_round: 20 # number repeats per round
+  rounds: 3 # number of rounds
   CV_increments: 10 # number of values within the CV bounds
 
 simulate: 
-  duration: 1000.0
-  delay: 100
-  trigger: 200
-  test: 200
+  duration: 10000.0
+  delay: 500
+  trigger: 1000
+  test: 300
 
+
+sinusoidal_input:
+  rate : [1000] 
+  amplitude : [1500]
+  frequency : [2, 40]
+
+# dc_input:
+#   amplitude: 100.0
+
+###################
+## NEURON PARAMS ##
 exc_params:
   a: -0.8
   b: 65
@@ -25,7 +37,8 @@ exc_params:
   g_L: 4.3
   V_reset: -53
   tau_w: 88
-  t_ref: 5.0
+  # note t_ref was 5 before from the IF curve example from the NEST tutorial. in Gersnter example it was 0.0 (default?)
+  t_ref: 0.0 # synaptic delay should be higher 
   V_peak: -20.0 # changed from -40 for threshold heterogeneiety
   E_L: -65
   E_ex: 0.0
@@ -43,7 +56,7 @@ inh_params:
   g_L: 3
   V_reset: -54.0
   tau_w: 20.0
-  t_ref: 5.0
+  t_ref: 0.0
   V_peak: -30.0 # changed from -40 for threshold heterogeneiety
   E_L: -62
   E_ex: 0.0
@@ -51,6 +64,8 @@ inh_params:
   tau_syn_ex: 0.2
   tau_syn_in: 2.0
 
+############################
+## Connectivity & Weights ##
 weights:
   wee: 1.0
   wie: 1.0
@@ -58,38 +73,21 @@ weights:
   wii: -1.8
   wli: 1.8 # lateral inhibition ex -> inhib but == wii
 
+conn_params:
+  cluster: 
+    rule: pairwise_bernoulli 
+    p: 0.35 
+  input: 
+    rule: pairwise_bernoulli
+    p: 0.75
+  
+lat_inhib:
+  p_exc_out: 0.1
+  p_inhib_in: 0.2
+  conn_rule: 'fixed_indegree'
+  # synapse_model: 'static_synapse' # it s the default anyway
 
-# NOTE: the CVs cannot be too large -- otherwise from the way thery were chosen in the from that distribution
-# it might be possible that they might be negative....
-CV: # Coefficient of variation -- tune heterogeneiety parameter by parameter
-  g_L: 0.3  # 0.1 means 10% heterogeneity btw
-  C_m: 0.0
-  V_th: 0.0
-  tau_ref: 0.0
-  tau_w: 0.0
-  Delta_T: 0.0
-  a: 0.0
-  b: 0.0
-  w: 0.0
-  syn: 0.0
-
-sinusoidal_input:
-  rate : [1000] 
-  amplitude : [1500]
-  frequency : [5, 30]
-
-dc_input:
-  amplitude: 100.0
-
-
-conn_spec:  # bernoulli 
-  rule: pairwise_bernoulli 
-  p: 0.5 
-
-lat_inhib: # lateral inhibition connection rule
-  rule: 'fixed_total_number'
-  N_inh: 12
-
+############################
 syn_spec: # triplet STDP
   # Excitatory-to-Excitatory
   ee:
@@ -139,4 +137,16 @@ syn_spec: # triplet STDP
     # Aminus_triplet: 0.005
     Wmax: -7.2
 
-  
+###############################
+## Coefficients of Variation ##
+CV:
+  g_L: 0.0  
+  C_m: 0.0
+  V_th: 0.0
+  tau_ref: 0.0
+  tau_w: 0.0
+  Delta_T: 0.0
+  a: 0.0
+  b: 0.0
+  w: 0.0
+  syn: 0.0

@@ -21,7 +21,7 @@ class Cluster:
         self.CV = config['CV']
         self.simulate = config['simulate']
         self.sin_input = config['sinusoidal_input']
-        self.connections = config['conn_spec']
+        self.connections = config['conn_params']['cluster']
         self.syn_ee = config['syn_spec']['ee']
         self.syn_ie = config['syn_spec']['ie']
         self.syn_ei = config['syn_spec']['ei']
